@@ -243,12 +243,58 @@ $ProjectDir = Join-Path $ProjectsDir $Name
 Write-Host "📁 创建项目目录: $ProjectDir" -ForegroundColor Cyan
 
 # 创建子目录结构
+Write-Host "`n📁 创建目录结构..." -ForegroundColor Cyan
+
 $Directories = @(
     "小说章节",
     "图片资产/人物",
     "图片资产/场景", 
     "图片资产/物品",
-    "视频资产",
+    "视频资产"
+)
+
+foreach ($dir in $Directories) {
+    $fullPath = Join-Path $ProjectDir $dir
+    New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
+    Write-Host "  ✓ $dir" -ForegroundColor Gray
+}
+
+# 按总集数创建子目录
+Write-Host ""
+Write-Host "📁 按集数创建子目录..." -ForegroundColor Cyan
+
+for ($i = 1; $i -le $TotalEpisodes; $i++) {
+    $epNum = "$($i.ToString('00'))"
+    
+    # 视频资产子目录
+    $videoEpDir = Join-Path $ProjectDir "视频资产/第$epNum集"
+    New-Item -ItemType Directory -Path $videoEpDir -Force | Out-Null
+    Write-Host "  ✓ 视频资产/第$epNum集" -ForegroundColor Gray
+    
+    # 剧本子目录
+    $scriptEpDir = Join-Path $ProjectDir "剧本/第$epNum集"
+    New-Item -ItemType Directory -Path $scriptEpDir -Force | Out-Null
+    Write-Host "  ✓ 剧本/第$epNum集" -ForegroundColor Gray
+    
+    # 分镜子目录
+    $sbEpDir = Join-Path $ProjectDir "分镜/第$epNum集"
+    New-Item -ItemType Directory -Path $sbEpDir -Force | Out-Null
+    Write-Host "  ✓ 分镜/第$epNum集" -ForegroundColor Gray
+    
+    # 导演规划子目录
+    $directorEpDir = Join-Path $ProjectDir "导演规划/第$epNum集"
+    New-Item -ItemType Directory -Path $directorEpDir -Force | Out-Null
+    Write-Host "  ✓ 导演规划/第$epNum集" -ForegroundColor Gray
+    
+    # 改编计划子目录
+    $adaptEpDir = Join-Path $ProjectDir "改编计划/第$epNum集"
+    New-Item -ItemType Directory -Path $adaptEpDir -Force | Out-Null
+    Write-Host "  ✓ 改编计划/第$epNum集" -ForegroundColor Gray
+}
+
+# 其他目录
+$OtherDirs = @(
+    "改编计划",
     "剧本",
     "分镜",
     "导演规划",
@@ -256,10 +302,12 @@ $Directories = @(
     "数据库"
 )
 
-foreach ($dir in $Directories) {
+foreach ($dir in $OtherDirs) {
     $fullPath = Join-Path $ProjectDir $dir
-    New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
-    Write-Host "  ✓ $dir" -ForegroundColor Gray
+    if (-not (Test-Path $fullPath)) {
+        New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
+        Write-Host "  ✓ $dir" -ForegroundColor Gray
+    }
 }
 
 # 复制小说章节

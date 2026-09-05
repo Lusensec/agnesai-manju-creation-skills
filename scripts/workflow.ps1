@@ -25,7 +25,7 @@ $TemplatesDir = Join-Path $ScriptDir "../templates"
 Write-Host "📦 加载模块..." -ForegroundColor Cyan
 . "$LedsDir\rate-limiter.ps1"
 . "$LedsDir\api-client.ps1"
-. "$LedsDir\manifest-manager.ps1"
+. "$LedsDir\db-manager.ps1"  # 使用数据库管理器替代 manifest-manager
 
 Write-Host ""
 
@@ -47,9 +47,14 @@ if (Test-Path $configPath) {
     Write-Host "⚠ 未找到项目配置文件" -ForegroundColor Yellow
 }
 
-# 加载资产索引
-$manifestPath = Join-Path $ProjectDir "资产清单\asset_manifest.json"
-Load-Manifest -Path $manifestPath
+# 连接数据库
+$dbPath = Join-Path $ProjectDir "数据库\$Project.db"
+if (Test-Path $dbPath) {
+    Connect-Database -DbPath $dbPath
+} else {
+    Write-Host "⚠ 数据库不存在，请先运行 init_project.ps1" -ForegroundColor Yellow
+    exit 1
+}
 
 Write-Host ""
 
@@ -283,11 +288,11 @@ while ($addMore) {
         if ($result.data -and $result.data[0].url) {
             $assetUrl = $result.data[0].url
             
-            # 添加到索引
-            $assetId = Add-Asset -Type $assetType -Category $assetType -Name $assetName -Url $assetUrl -Size "2K" -Ratio "16:9" -Status "done" -Prompt $assetPrompt
+            # 保存到数据库
+            $assetId = Add-Asset -Type $assetType -Category $assetType -Name $assetName -GeneratedUrl $assetUrl -Prompt $assetPrompt
             Save-Manifest
             
-            Write-Host "✓ 资产已生成并保存 [ID:$assetId]" -ForegroundColor Green
+            Write-Host "✓ 资产已生成并保存到数据库 [ID:$assetId]" -ForegroundColor Green
             Write-Host "  URL: $assetUrl" -ForegroundColor Gray
         } else {
             Write-Host "⚠ 生成失败，请检查响应" -ForegroundColor Yellow
@@ -299,6 +304,193 @@ while ($addMore) {
     Write-Host ""
     $continue = Read-Host "是否继续添加资产？(y/n)"
     if ($continue -ne 'y') { $addMore = $false }
+}
+
+# 显示资产列表
+$allAssets = Get-Assets
+if ($allAssets.Count -gt 0) {
+    Write-Host ""
+    Write-Host "📋 当前资产列表:" -ForegroundColor Cyan
+    $allAssets | ForEach-Object { Write-Host "   [ID:$($_.id)] $($_.name) ($($_.type)) - $($_.url)" -ForegroundColor White }
+} else {
+    Write-Host "⚠ 暂无资产，后续步骤可能受限" -ForegroundColor Yellow
+}
+
+Write-Host ""
+
+# ============================================
+# 第三步补充：从剧本提取资产
+# ============================================
+Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║         第三步：剧本资产提取                         ║" -ForegroundColor Cyan
+Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+
+# 检查是否有剧本
+$scriptDir = Join-Path $ProjectDir "剧本"
+$scriptFiles = Get-ChildItem $scriptDir -Filter "*.xml" -ErrorAction SilentlyContinue
+if ($scriptFiles.Count -gt 0) {
+    $scriptContent = Get-Content $scriptFiles[0].FullName -Raw -Encoding UTF8
+    
+    Write-Host "📝 正在从剧本提取资产清单..." -ForegroundColor Cyan
+    Write-Host ""
+    
+    # 获取项目配置中的艺术风格
+    $style = $config.style
+    $stylePrefix = switch ($style) {
+        "2D_chinese_guofeng" { "国风二次元，新国潮美学，日式动画渲染，赛璐璐平涂，细腻笔触" }
+        "2D_flat_design" { "扁平设计风格，简约线条，几何化造型，明快色彩" }
+        "3D_anime_render" { "3D动漫渲染，stylized 3D character，anime-inspired" }
+        "realpeople_modern_city" { "真人质感，现代都市风格，realistic human character" }
+        default { "anime style, detailed illustration" }
+    }
+    
+    # 构建提示词提取资产并生成提示词
+    $extractPrompt = @"
+请从以下剧本中提取需要生成的资产清单，并为每个资产生成图像生成提示词。
+
+剧本内容：
+$scriptContent
+
+艺术风格：$style
+
+请按以下格式输出：
+
+## 需要生成的资产清单
+
+### 角色资产
+| ID | 名称 | 描述 | 优先级 |
+|----|------|------|--------|
+| C01 | 角色名 | 详细外貌、服装描述 | 高/中/低 |
+
+**生成提示词：**
+```
+$stylePrefix，character design sheet, character turnaround,
+[角色描述]，
+同一画面左至右并排：人像特写+正视图+侧视图+后视图，
+纯色背景，均匀柔光，无硬阴影，
+图中不要有任何文字，no text
+```
+
+### 场景资产
+| ID | 名称 | 描述 | 优先级 |
+|----|------|------|--------|
+| S01 | 场景名 | 详细环境描述 | 高/中/低 |
+
+**生成提示词：**
+```
+$stylePrefix，scene design sheet, environment concept art, no people, no characters,
+[场景描述]，
+柔和光影，日式渲染，细腻质感，
+图中不要有任何文字，no text
+```
+
+### 道具资产
+| ID | 名称 | 描述 | 优先级 |
+|----|------|------|--------|
+| P01 | 道具名 | 详细外观描述 | 高/中/低 |
+
+**生成提示词：**
+```
+$stylePrefix，prop closeup, detailed object shot, no people,
+[道具描述]，
+纯色背景，均匀柔光，无硬阴影，
+图中不要有任何文字，no text
+```
+
+注意：
+- 只提取剧本中明确提到的资产
+- 描述要详细，便于图像生成
+- 按出场顺序排列
+- 每个类型至少提取 1-2 个必要资产
+"@
+    
+    try {
+        $extractResult = Simple-Chat -Prompt $extractPrompt -SystemPrompt "你是一个专业的漫剧制作统筹，擅长从剧本中提取视觉资产需求并生成图像提示词。"
+        
+        # 保存提取结果到本地
+        $extractFile = Join-Path $ProjectDir "资产清单\asset_extraction.md"
+        $extractResult | Out-File -FilePath $extractFile -Encoding UTF8
+        Write-Host "✓ 资产提取结果已保存到本地: asset_extraction.md" -ForegroundColor Green
+        Write-Host ""
+        
+        # 同时保存到数据库
+        $escapedContent = $extractResult -replace "'", "''"
+        Execute-Sql "INSERT INTO asset_extractions (project_id, content, created_at) VALUES ($ProjectId, '$escapedContent', datetime('now'));" -ErrorAction SilentlyContinue
+        
+        # 显示提取结果
+        Write-Host "📋 剧本资产提取结果：" -ForegroundColor Cyan
+        Write-Host "----------------------------------------" -ForegroundColor Gray
+        $previewLines = $extractResult -split "`n" | Select-Object -First 40
+        $previewLines | ForEach-Object { Write-Host "   $_" -ForegroundColor White }
+        if (($extractResult -split "`n").Count -gt 40) {
+            Write-Host "   ... (共 $(( $extractResult -split "`n" ).Count) 行)" -ForegroundColor Gray
+        }
+        Write-Host "----------------------------------------" -ForegroundColor Gray
+        Write-Host ""
+        
+        # 询问是否自动创建资产
+        $autoCreate = Read-Host "是否根据提取结果自动创建资产？(y=是/n=手动添加/q=退出)"
+        
+        if ($autoCreate -eq 'y') {
+            Write-Host "`n⏳ 正在解析资产清单并保存到数据库..." -ForegroundColor Cyan
+            
+            # 解析角色资产
+            $characterMatches = [regex]::Matches($extractResult, '\| C\d+\s+[^\|]+\|[^\|]+\|[^\|]+')
+            $sceneMatches = [regex]::Matches($extractResult, '\| S\d+\s+[^\|]+\|[^\|]+\|[^\|]+')
+            $propMatches = [regex]::Matches($extractResult, '\| P\d+\s+[^\|]+\|[^\|]+\|[^\|]+')
+            
+            Write-Host "  检测到 $($characterMatches.Count) 个角色，$($sceneMatches.Count) 个场景，$($propMatches.Count) 个道具" -ForegroundColor Gray
+            
+            # 提取提示词并保存
+            $promptMatches = [regex]::Matches($extractResult, '\`\`\`\r?\n(.*?)\`\`\`', 'Singleline')
+            $promptIndex = 0
+            foreach ($match in $promptMatches) {
+                $prompt = $match.Groups[1].Value.Trim()
+                if ($promptIndex -lt ($characterMatches.Count + $sceneMatches.Count + $propMatches.Count)) {
+                    # 确定类型
+                    $type = switch ($promptIndex) {
+                        { $_ -lt $characterMatches.Count } { "character" }
+                        { $_ -lt ($characterMatches.Count + $sceneMatches.Count) } { "scene" }
+                        default { "prop" }
+                    }
+                    
+                    # 获取名称
+                    $nameIndex = switch ($type) {
+                        "character" { $promptIndex }
+                        "scene" { $characterMatches.Count + $promptIndex - $characterMatches.Count }
+                        default { $characterMatches.Count + $sceneMatches.Count + $promptIndex - $characterMatches.Count - $sceneMatches.Count }
+                    }
+                    
+                    $nameMatch = switch ($type) {
+                        "character" { $characterMatches[$nameIndex] }
+                        "scene" { $sceneMatches[$nameIndex] }
+                        default { $propMatches[$nameIndex] }
+                    }
+                    
+                    if ($nameMatch) {
+                        $name = ($nameMatch.Value -split '\|')[1].Trim()
+                        Add-Asset -Type $type -Category $type -Name $name -Prompt $prompt
+                    }
+                }
+                $promptIndex++
+            }
+            
+            Save-Manifest
+            Write-Host "✓ 资产已保存到数据库" -ForegroundColor Green
+            Write-Host ""
+            
+        } elseif ($autoCreate -eq 'q') {
+            Write-Host "已取消" -ForegroundColor Yellow
+            exit 0
+        }
+        
+    } catch {
+        Write-Host "⚠ 资产提取失败: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  请手动添加资产" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "⚠ 跳过资产提取（未找到剧本文件）" -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -349,15 +541,22 @@ $scriptContent
     try {
         $storyboardContent = Simple-Chat -Prompt $storyboardPrompt -SystemPrompt "你是一位经验丰富的漫剧导演，擅长分镜设计和节奏把控。"
         
-        # 保存导演规划
-        $directorDir = Join-Path $ProjectDir "导演规划"
+        # 保存到本地（按集数目录）
+        $directorDir = Join-Path $ProjectDir "导演规划/第01集"
         $directorFile = Join-Path $directorDir "EP01_导演规划.md"
+        New-Item -ItemType Directory -Path $directorDir -Force | Out-Null
         $storyboardContent | Out-File -FilePath $directorFile -Encoding UTF8
         
-        # 保存分镜表
-        $storyboardOutDir = Join-Path $ProjectDir "分镜"
+        # 分镜表也保存到对应集数目录
+        $storyboardOutDir = Join-Path $ProjectDir "分镜/第01集"
         $storyboardFile = Join-Path $storyboardOutDir "EP01_分镜表.md"
+        New-Item -ItemType Directory -Path $storyboardOutDir -Force | Out-Null
         $storyboardContent | Out-File -FilePath $storyboardFile -Encoding UTF8
+        
+        # 保存到数据库
+        $escapedContent = $storyboardContent -replace "'", "''"
+        Execute-Sql "INSERT INTO director_plans (project_id, content, created_at) VALUES ($ProjectId, '$escapedContent', datetime('now'));"
+        Write-Host "✓ 内容已保存到数据库" -ForegroundColor Green
         
         Write-Host "✓ 导演规划和分镜表已生成" -ForegroundColor Green
         Write-Host "  文件: $directorFile" -ForegroundColor Gray
@@ -431,9 +630,8 @@ if ($assets.Count -gt 0) {
                     
                     if ($result.data -and $result.data[0].url) {
                         $imageUrl = $result.data[0].url
-                        Add-Asset -Type "storyboard" -Category "分镜" -Name "$($asset.name)_分镜" -Url $imageUrl -Size "2K" -Ratio "16:9" -Status "done"
-                        Save-Manifest
-                        Write-Host "   ✓ 已保存" -ForegroundColor Green
+                        Add-Asset -Type "storyboard" -Category "分镜" -Name "$($asset.name)_分镜" -GeneratedUrl $imageUrl
+                        Write-Host "   ✓ 已保存到数据库" -ForegroundColor Green
                     }
                 } catch {
                     Write-Host "   ⚠ 生成失败: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -492,9 +690,8 @@ if ($storyboardAssets.Count -gt 0) {
                     
                     if ($videoResult.data -and $videoResult.data[0].url) {
                         $videoUrl = $videoResult.data[0].url
-                        Add-Video -Episode 1 -Sequence ($count + 1) -Url $videoUrl -Duration 5
-                        Save-Manifest
-                        Write-Host "   ✓ 已保存" -ForegroundColor Green
+                        Add-VideoClip -EpisodeNumber 1 -Sequence ($count + 1) -GeneratedUrl $videoUrl -DurationSeconds 5
+                        Write-Host "   ✓ 已保存到数据库" -ForegroundColor Green
                     }
                 } catch {
                     Write-Host "   ⚠ 生成失败: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -513,7 +710,7 @@ if ($storyboardAssets.Count -gt 0) {
         
         Write-Host ""
         Write-Host "✓ 视频生成完成" -ForegroundColor Green
-        Show-ManifestStats
+        Show-AssetStats
     }
 } else {
     Write-Host "⚠ 跳过视频生成（暂无分镜图资产）" -ForegroundColor Yellow
@@ -529,10 +726,10 @@ Write-Host "║                    创作完成！                       ║" -F
 Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-Show-ManifestStats
+Show-AssetStats
 
 Write-Host "📁 项目文件位置: $ProjectDir" -ForegroundColor Cyan
-Write-Host "📊 索引文件位置: $manifestPath" -ForegroundColor Cyan
+Write-Host "🗄️ 数据库位置: $dbPath" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "✨ 恭喜！你的漫剧创作已完成！" -ForegroundColor Green
 Write-Host ""
