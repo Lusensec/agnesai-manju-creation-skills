@@ -96,23 +96,46 @@ router.post('/', (req, res) => {
     }
     
     try {
-        // 调用 PowerShell 脚本创建项目
+        // 获取脚本路径
         const scriptPath = path.join(SKILL_DIR, 'scripts', 'init_project.ps1');
-        const command = `powershell -ExecutionPolicy Bypass -File "${scriptPath}" -Name "${name}" -NovelPath "${novel_path}" -Style "${style}" -TotalEpisodes ${total_episodes} -EpisodeDuration ${episode_duration} -Platform "${platform}"`;
         
-        execSync(command, { 
+        // 确保小说路径存在
+        if (!fs.existsSync(novel_path)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `小说路径不存在: ${novel_path}` 
+            });
+        }
+        
+        // 构建命令（使用更可靠的调用方式）
+        const escapedName = name.replace(/"/g, '""');
+        const escapedStyle = style.replace(/"/g, '""');
+        const escapedPlatform = platform.replace(/"/g, '""');
+        const escapedNovelPath = novel_path.replace(/"/g, '""');
+        
+        const command = `powershell -ExecutionPolicy Bypass -NoProfile -Command "& '${scriptPath}' -Name '${escapedName}' -NovelPath '${escapedNovelPath}' -Style '${escapedStyle}' -TotalEpisodes ${total_episodes} -EpisodeDuration ${episode_duration} -Platform '${escapedPlatform}'"`;
+        
+        // 执行命令
+        const result = execSync(command, { 
             cwd: path.dirname(scriptPath),
-            stdio: 'inherit',
-            timeout: 60000
+            encoding: 'utf8',
+            timeout: 120000,
+            stdio: 'pipe'
         });
         
         res.json({ 
             success: true, 
             message: '项目创建成功',
-            data: { name }
+            data: { name, output: result }
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('创建项目失败:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            stdout: error.stdout,
+            stderr: error.stderr
+        });
     }
 });
 

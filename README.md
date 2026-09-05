@@ -26,25 +26,18 @@ AGNES_API_KEY=sk-你的实际 API Key
 
 ## 快速开始
 
-### 命令行触发
+### Agent 创作
 
 ```bash
-# 初始化项目
-./scripts/init_project.ps1 -Name "项目名" -NovelPath "小说路径"
-
-# 管理资产
-./scripts/asset_manager.ps1 -Project "项目名" -Command list
-
-# 查看状态
-./scripts/project_status.ps1 -Project "项目名"
+初始化项目
 ```
 
-### Web GUI 触发
+### Web GUI 创作
 
-在 DeepSeek Harness Web GUI 中输入：
+在 Agent 中输入：
 
 ```
-请帮我制作漫剧：将《XXX》第X章到第Y章改编为漫剧，共Z集，每集约X分钟
+帮我打开 Web GUI
 ```
 
 ## 创作流程图
