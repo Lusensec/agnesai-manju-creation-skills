@@ -37,7 +37,7 @@ AGNES_API_KEY=sk-你的实际 API Key
 在 Agent 中输入：
 
 ```
-帮我打开 Web GUI
+打开漫剧创作 Web GUI
 ```
 
 ## 创作流程图
