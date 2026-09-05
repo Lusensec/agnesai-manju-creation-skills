@@ -1,0 +1,14 @@
+{
+  "name": "",
+  "style": "2D_chinese_guofeng",
+  "total_episodes": 3,
+  "episode_duration": 1.0,
+  "platform": "竖屏",
+  "chapters_range": "1-1",
+  "created_at": "",
+  "assets_base_dir": "图片资产",
+  "videos_base_dir": "视频资产",
+  "scripts_base_dir": "剧本",
+  "storyboards_base_dir": "分镜",
+  "db_path": "数据库/project.db"
+}

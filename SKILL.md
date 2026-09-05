@@ -54,25 +54,28 @@ description: |
 
 ## 快速开始
 
-### 1. 配置 API Key
+### 方法一：使用工作流脚本（推荐）
 
-复制 `.env.example` 为 `.env` 并填入 Agnes AI API Key：
-
-```bash
-cp .env.example .env
-# 编辑 .env 文件
-AGNES_API_KEY=sk-你的实际 API Key
+```powershell
+# 交互式创作流程
+./scripts/workflow.ps1 -Project "项目名"
 ```
 
-> 获取 API Key：https://platform.agnes-ai.cn
+工作流包含 6 个步骤：
+1. **前置检查** - 自动检测 API Key、sqlite3、小说文件
+2. **剧本创作** - 调用对话模型生成剧本
+3. **资产生成** - 调用图像模型生成角色/场景/道具图
+4. **导演分镜** - 生成导演规划和分镜表
+5. **分镜图创作** - 多图合成生成分镜图
+6. **视频创作** - 图片参考生成视频片段
 
-### 2. 初始化项目
+### 方法二：分步执行
 
-使用 PowerShell 脚本创建项目结构：
+#### 1. 初始化项目
 
 ```powershell
 # 基本用法
-./scripts/init_project.ps1 -Name "项目名" -NovelPath "小说章节文件路径或目录"
+./scripts/init_project.ps1 -Name "项目名" -NovelPath "小说路径"
 
 # 完整参数
 ./scripts/init_project.ps1 `
@@ -104,15 +107,14 @@ projects/项目名/
 ├── 分镜/
 ├── 导演规划/
 ├── 资产清单/
+│   └── asset_manifest.json
 ├── 数据库/
 │   └── 项目名.db
 ├── project_config.json
 └── README.md
 ```
 
-### 3. 管理资产
-
-使用资产管理器脚本：
+#### 2. 管理资产
 
 ```powershell
 # 列出所有资产
@@ -128,7 +130,7 @@ projects/项目名/
 ./scripts/asset_manager.ps1 -Project "项目名" -Command generate-prompt -AssetId 101
 ```
 
-### 4. 查看项目状态
+#### 3. 查看项目状态
 
 ```powershell
 ./scripts/project_status.ps1 -Project "项目名"
@@ -168,6 +170,65 @@ projects/项目名/
     ↓
 完整漫剧视频
 ```
+
+---
+
+## 工作流说明
+
+### workflow.ps1 六步创作流程
+
+```powershell
+./scripts/workflow.ps1 -Project "项目名"
+```
+
+| 步骤 | 功能 | API 模型 | 速率限制 |
+|------|------|----------|----------|
+| 1 | 前置检查 | - | - |
+| 2 | 剧本创作 | agnes-2.5-flash | 20次/分钟 |
+| 3 | 资产生成 | agnes-image-2.5-flash | 10次/分钟 (2K) |
+| 4 | 导演分镜 | agnes-2.5-flash | 20次/分钟 |
+| 5 | 分镜图创作 | agnes-image-2.5-flash (多图合成) | 10次/分钟 (2K) |
+| 6 | 视频创作 | agnes-video-2.5-flash | 1次/分钟 |
+
+### 速率限制自动处理
+
+- 所有 API 调用自动遵守速率限制
+- 超限自动等待，无需手动干预
+- 支持超时重试（最多 3 次）
+- 实时显示速率状态
+
+### 资产索引管理
+
+使用 `asset_manifest.json` 统一管理：
+
+```json
+{
+  "version": "1.0",
+  "project": "项目名",
+  "assets": [
+    {
+      "id": 101,
+      "type": "character",
+      "name": "主角",
+      "url": "https://...",
+      "size": "2K",
+      "ratio": "16:9",
+      "status": "done"
+    }
+  ],
+  "storyboards": [],
+  "videos": []
+}
+```
+
+### 重试机制
+
+| 场景 | 行为 |
+|------|------|
+| API 超时 | 等待 30 秒后重试 |
+| 速率限制 (429) | 等待 60 秒后重试 |
+| 网络错误 | 等待后重试 |
+| 最大重试次数 | 3 次，失败后抛出异常 |
 
 ---
 
@@ -508,6 +569,10 @@ A: 是的，使用同一个 Agnes AI API Key 即可访问所有模型（对话�
 - [分镜表构建 Agent](./production_skills/production_execution_storyboard_table.md)
 - [分镜面板写入 Agent](./production_skills/production_execution_storyboard_panel.md)
 - [项目初始化脚本](./scripts/init_project.ps1)
+- [工作流脚本](./scripts/workflow.ps1)
 - [资产管理器](./scripts/asset_manager.ps1)
 - [项目状态报告](./scripts/project_status.ps1)
+- [速率限制器](./libs/rate-limiter.ps1)
+- [API 客户端](./libs/api-client.ps1)
+- [索引管理器](./libs/manifest-manager.ps1)
 - [数据库 Schema](./db/schema.sql)
