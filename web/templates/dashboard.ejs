@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仪表盘 - 漫剧创作中心</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>🎬 漫剧创作中心</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="/dashboard" class="nav-item active">
+                    <span class="icon">📊</span> 仪表盘
+                </a>
+                <a href="/projects" class="nav-item">
+                    <span class="icon">📁</span> 我的项目
+                </a>
+                <a href="/projects/new" class="nav-item">
+                    <span class="icon">➕</span> 新建项目
+                </a>
+            </nav>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <header class="header">
+                <h2>📊 仪表盘</h2>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="openAgent()">💬 与 Agent 对话</button>
+                    <a href="/projects/new" class="btn btn-success">➕ 新建项目</a>
+                </div>
+            </header>
+
+            <div class="dashboard">
+                <!-- 统计卡片 -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📁</div>
+                        <div class="stat-info">
+                            <h3 id="totalProjects">0</h3>
+                            <p>总项目数</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎨</div>
+                        <div class="stat-info">
+                            <h3 id="totalAssets">0</h3>
+                            <p>资产总数</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-info">
+                            <h3 id="totalScripts">0</h3>
+                            <p>剧本数</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎬</div>
+                        <div class="stat-info">
+                            <h3 id="totalVideos">0</h3>
+                            <p>视频数</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 最近项目 -->
+                <div class="section">
+                    <h3>最近项目</h3>
+                    <div class="project-list" id="projectList">
+                        <div class="empty-state">
+                            <p>暂无项目，点击"新建项目"开始创作</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快速操作 -->
+                <div class="section">
+                    <h3>快速操作</h3>
+                    <div class="quick-actions">
+                        <a href="/projects/new" class="action-card">
+                            <span class="icon">🆕</span>
+                            <span>新建项目</span>
+                        </a>
+                        <a href="#" class="action-card" onclick="openAgent()">
+                            <span class="icon">💬</span>
+                            <span>咨询 Agent</span>
+                        </a>
+                        <a href="#" class="action-card">
+                            <span class="icon">📚</span>
+                            <span>查看文档</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Agent 对话面板 -->
+        <aside class="agent-panel" id="agentPanel">
+            <div class="agent-header">
+                <h3>🤖 Agent 助手</h3>
+                <button class="close-btn" onclick="toggleAgent()">×</button>
+            </div>
+            <div class="agent-messages" id="agentMessages">
+                <div class="message agent">
+                    <div class="avatar">🤖</div>
+                    <div class="content">你好！我是漫剧创作助手，有什么可以帮你的？</div>
+                </div>
+            </div>
+            <div class="agent-input">
+                <input type="text" id="agentInput" placeholder="输入消息..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()">发送</button>
+            </div>
+        </aside>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script src="/js/project.js"></script>
+    <script src="/js/agent.js"></script>
+    <script>
+        // 加载项目数据
+        document.addEventListener('DOMContentLoaded', loadDashboard);
+    </script>
+</body>
+</html>

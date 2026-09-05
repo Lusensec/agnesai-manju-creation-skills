@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新建项目 - 漫剧创作中心</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>🎬 漫剧创作中心</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="/dashboard" class="nav-item">
+                    <span class="icon">📊</span> 仪表盘
+                </a>
+                <a href="/projects" class="nav-item">
+                    <span class="icon">📁</span> 我的项目
+                </a>
+                <a href="/projects/new" class="nav-item active">
+                    <span class="icon">➕</span> 新建项目
+                </a>
+            </nav>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <header class="header">
+                <h2>➕ 新建项目</h2>
+            </header>
+
+            <div class="content">
+                <div class="form-container">
+                    <form id="createProjectForm" onsubmit="handleSubmit(event)">
+                        <!-- 基础信息 -->
+                        <div class="section">
+                            <h3>基础信息</h3>
+                            
+                            <div class="form-group">
+                                <label>项目名称 *</label>
+                                <input type="text" name="name" required placeholder="请输入项目名称">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>艺术风格 *</label>
+                                <div class="style-grid">
+                                    <div class="style-card" onclick="selectStyle(this, '2D_chinese_guofeng')">
+                                        <h4>2D 国风</h4>
+                                        <p>传统水墨意境</p>
+                                    </div>
+                                    <div class="style-card" onclick="selectStyle(this, '2D_flat_design')">
+                                        <h4>2D 扁平设计</h4>
+                                        <p>简约干净</p>
+                                    </div>
+                                    <div class="style-card" onclick="selectStyle(this, '3D_anime_render')">
+                                        <h4>3D 动漫渲染</h4>
+                                        <p>立体渲染</p>
+                                    </div>
+                                    <div class="style-card" onclick="selectStyle(this, 'realpeople_modern_city')">
+                                        <h4>真人现代都市</h4>
+                                        <p>真实质感</p>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="style" id="selectedStyle" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>单集时长（分钟）</label>
+                                <input type="number" name="episode_duration" value="1.0" min="0.5" max="10" step="0.5">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>总集数</label>
+                                <input type="number" name="total_episodes" value="3" min="1" max="20">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>平台规格</label>
+                                <select name="platform">
+                                    <option value="横屏">横屏 (16:9)</option>
+                                    <option value="竖屏">竖屏 (9:16)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 小说文件 -->
+                        <div class="section">
+                            <h3>小说文件</h3>
+                            
+                            <div class="form-group">
+                                <label>小说章节路径 *</label>
+                                <input type="text" name="novel_path" required placeholder="C:\path\to\novel\chapters">
+                                <small>请提供包含小说章节的目录路径</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>章节范围</label>
+                                <input type="text" name="chapters" value="1" placeholder="如: 1 或 1-3">
+                            </div>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <div class="form-actions">
+                            <a href="/dashboard" class="btn">取消</a>
+                            <button type="submit" class="btn btn-success">创建项目</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let selectedStyleValue = '';
+
+        function selectStyle(element, styleValue) {
+            // 移除所有选中状态
+            document.querySelectorAll('.style-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 添加选中状态
+            element.classList.add('selected');
+            selectedStyleValue = styleValue;
+            document.getElementById('selectedStyle').value = styleValue;
+        }
+
+        async function handleSubmit(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            
+            // 验证
+            if (!data.style) {
+                alert('请选择艺术风格');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('项目创建成功！');
+                    window.location.href = `/projects/${data.name}`;
+                } else {
+                    alert('创建失败: ' + result.error);
+                }
+            } catch (error) {
+                alert('创建失败: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
